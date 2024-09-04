@@ -52,6 +52,7 @@ conflicts_prefer(matrixStats::rowMedians)
 conflicts_prefer(dplyr::count)
 conflicts_prefer(dplyr::rename)
 conflicts_prefer(stats::as.dist)
+conflicts_prefer(matrixStats::rowMaxs)
 # load setup files --------------------------------------------------------
 LoadMeta = FALSE
 LoadSig = TRUE
