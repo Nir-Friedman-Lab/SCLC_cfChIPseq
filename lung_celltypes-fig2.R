@@ -76,7 +76,7 @@ pheatmap::pheatmap(d.log[,col.ord],
                    color = cfm.color,
                    fontsize = 6, treeheight_row = 0, height = 4,
                    annotation_colors = group.colors.heatmap, width = 3,
-                   filename = paste0(figDirPaper, "figureS2/lung_cell_type_heatmap.pdf"),
+                   # filename = paste0(figDirPaper, "figureS2/lung_cell_type_heatmap.pdf"),
                    annotation_legend = F,) 
 dev.off()
 
@@ -96,7 +96,7 @@ data.lung_celltypes %>%
   mutate(val.per.gene = val/lung_celltypes_genes_n[cell_type, "n"]) %>%
   mutate(cell_type = reorder(cell_type, val.per.gene, mean)) -> data.lc.m
 
-boxplotWOpoints(data.lc.m, "cell_type", "val.per.gene", "group") +
+boxplotWOpoints(data.lc.m, "cell_type", "val.per.gene", "group", plot_stat = F) +
   # ylim(c(NA,6000)) +
   # scale_y_break(c(1000,3000)) +
   coord_flip() + 
@@ -148,7 +148,7 @@ data.lung_celltypes %>%
   left_join(estimated.tumor %>% select(sample, SCLC.n, group), by = "sample") %>% 
   melt(id.vars = c("sample", "group", "SCLC.n"), variable.name = "cell_type", 
        value.name = "val") %>% 
-  filter(sample %in% s.samples, SCLC.n > high.score.cutoff) %>%
+  filter(sample %in% c(s.samples), SCLC.n > high.score.cutoff) %>%
   mutate(val = log2(val), cell_type = reorder(cell_type, val, median)) -> data.lct
 
 data.lct %>%

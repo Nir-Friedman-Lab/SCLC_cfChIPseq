@@ -28,13 +28,13 @@ rlod.table %>%
   arrange(-rLOD) %>% 
   head(50)
 
-s = "SCLC0005-24"
+s = "SCLC0261"
 s = "SCLC0005-24"
 rlod.table %>% 
   filter(grepl(s, row) | grepl(s, col)) %>% 
   filter(Count > 200) %>% 
   arrange(-rLOD) %>% 
-  head(13)
+  head(20)
 
 false.positive = c("SCLC0126-223", "SCLC0035-653", "sb_19_6623_R1", "SCLC0114-351", 
                    "SCLC0150-669", "19_2158", "19_5931")

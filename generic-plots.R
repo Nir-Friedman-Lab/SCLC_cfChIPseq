@@ -1,6 +1,11 @@
 library(dplyr)
 library(cowplot)
 library(enrichR,quietly = T)
+read.table(paste0(externalDataDir, "ncbiRefSeqSelect.txt"), 
+           header = T, sep = "\t", check.names = F) %>% 
+  # remove genes in non classical chromosomes
+  filter(!grepl("_", chrom)) -> genes
+
 base_size = 6
 base_line_size = .1
 
@@ -112,9 +117,6 @@ heatmap = function(df, x, y, fill, chigh = "red", clow = "blue", cmed = "black",
   p = p + labs(x = xlab, y = ylab, fill = leglab, title = title)
   p
 }
-
-genes = read.table("~/BloodChIP/git/Projects/SCLC-figures/ncbiRefSeqSelect.txt", header = T, sep = "\t", check.names = F)
-genes = genes[grep("_", genes$chrom, invert = T),] # remove genes in non classical chromosomes
 
 # input: bigwig track.  output: data.frame of binned signal 
 bin_signal = function(bw.path, genomic_range, chr, position, gene, bin.size = 50) {

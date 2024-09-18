@@ -2,7 +2,8 @@
 sclc.subtypes = c("ASCL1", "NEUROD1", "YAP1", "POU2F3", "ATOH1")
 
 # TF rna cutoffs  ---------------------------------------------------------
-SCLC_RNA_fixed[sclc.subtypes,] -> df
+rna_data[sclc.subtypes,] %>% 
+  as.data.frame() -> df
 df[df > 150] = 150
 
 df %>% 
@@ -14,22 +15,20 @@ df %>%
   facet_wrap(~gene, scales = "free") -> p
 ggsave("~/Downloads/TF_RNA_hist.png", p, width = 100, 
        height = 60, units = "mm", dpi = 500)
-subtype.cutoff = list(ascl1 = 10, neurod1 = 80, yap1 = 50, pou2f3 = 40, atoh1 = 5)
-# heatmap of TF in RNA (show that they are mutually exclusive) ------------
-rna.subtypes = log2(1+t(SCLC_RNA_fixed[sclc.subtypes,
-                                       not_matched.sclc_l.all.samples]))
+subtype.cutoff = list(ascl1 = 10, neurod1 = 60, yap1 = 50, pou2f3 = 40, atoh1 = 4)
+# heatmap of TF in RNA (show that they are more of less mutually exclusive) ------------
+metadata.matching %>% 
+  filter(SCLC.state != "other") %>% 
+  pull(Sample_id) -> s
+rna.subtypes = log2(1+t(rna_data[sclc.subtypes, s]))
 # rna.subtypes = sweep(rna.subtypes, 1, rowMedians(rna.subtypes), "-")
 rna.subtypes = sweep(rna.subtypes, 2, log2(1+unlist(subtype.cutoff)), "-")
 
 
-SCLC_ChIP_RNA_samples %>% 
-  filter(SampleShort_ID %in% not_matched.sclc_l.all.samples) %>% 
-  dplyr::rename(type = SCLC.state) %>% 
-  mutate(type = if_else(type == "SCLC", type, "other\nNE-tumors")) %>% 
-  mutate(type = factor(type, levels = c("SCLC", "other\nNE-tumors"))) %>% 
-  select(type,cohort) -> rna.groups
+metadata.matching %>% 
+  filter(Sample_id %in% s) %>% 
+  select(SCLC.state, cohort) -> rna.groups
 
-gp=gpar(fontsize = base_size)
 hlp = heatmap_legend_param = list(
   at = c(-3, 0, 3),
   labels = c("x1/8", "median", "x8"),
@@ -39,13 +38,14 @@ hlp = heatmap_legend_param = list(
   title_gp = gp,
   legend_height = unit(5, "mm"))
 
-ra = HeatmapAnnotation(df = rna.groups[,"type", drop = F], which = "row",
-                       annotation_legend_param = list(legend_gp = gp, 
-                                                      labels_gp = gp,
-                                                      legend_width = unit(1, "mm"),
-                                                      title = "tumor type",
-                                                      title_gp = gp,
-                                                      col_title = NULL))
+HeatmapAnnotation(df = rna.groups[,"SCLC.state", drop = F], which = "row",
+                  show_annotation_name = F,
+                  annotation_legend_param = list(legend_gp = gp, 
+                                                 labels_gp = gp,
+                                                 legend_width = unit(1, "mm"),
+                                                 title = "tumor type",
+                                                 title_gp = gp,
+                                                 col_title = NULL)) -> ra
 
 pdf(paste0(figDirPaper, "figure4/TF_RNA_wATOH1_v0.pdf"), width = 2.5, height = 3.1)
 Heatmap(rna.subtypes, show_row_names = F, 
@@ -60,31 +60,9 @@ Heatmap(rna.subtypes, show_row_names = F,
         column_names_gp = gp, row_title_gp = gp)
 dev.off()
 
-# ro = hclust(dist(rna.subtypes))$order
-# co = hclust(dist(t(rna.subtypes)))$order
-# 
-# rna.subtypes[ro,co] %>%
-#   melt(varnames = c("samp","tf"), value.name = "val") %>%
-#   mutate(val = replace(val, val > 3, 3)) %>%
-#   mutate(val = replace(val, val < -3, -3)) %>%
-#   heatmap("tf", "samp", "val", breaks = c(-3,0,3), ylab = "tumor RNA samples", 
-#             leglab = "", chigh = "#00A7FE", clow = "#E54C00", 
-#           cmed = "black") + 
-#   theme(axis.text.y = element_blank(), 
-#         axis.text.x = element_text(face = "bold", angle = 90), 
-#         legend.key.height = unit(3, 'mm'), legend.key.width = unit(2,"mm"), 
-#         axis.ticks = element_blank(), axis.line = element_blank(),
-#         legend.title = element_text(size=base_size, hjust = .5, vjust = 2), 
-#         legend.text = element_text(size=base_size)) -> p
-# ggsave(paste0(figDirPaper, "figure4/TF_RNA_wATOH1.pdf"), p, width = 55, 
-#        height = 80, units = "mm")
-
 # boxplot of 5 TFs in healthy and SCLC ChIP (to demonstrate that  --------
-col.annotation %>% 
-  filter(group %in% c("SCLC", "Healthy")) %>% 
-  .$sample -> s
-data.frame(group = col.annotation[s,"group"], 
-           t(chip_data_all[sclc.subtypes, s])) %>%
+data.frame(group = sample.annotation[sh.samples,"group"], 
+           t(chip_data_all[sclc.subtypes, sh.samples])) %>%
   melt(id.vars = "group", variable.name = "gene") %>%
   boxplotWOpoints("gene", "value", "group", ylab = "cfChIP reads", guides = T, 
                   stat_test = "wilcox.test") +
@@ -94,26 +72,26 @@ ggsave(paste0(figDirPaper, "figure4/TF_ChIP_boxplot.pdf"), p, width = 60,
        height = 70, units = "mm")
 
 # RNA ChIP scatter - SCLC transcription factors ---------------------------
-SCLC_ChIP_fixed[sclc.subtypes,] %>% 
+chip.matched[sclc.subtypes,] %>% 
   data.frame(check.names = F) %>% 
   rownames_to_column("gene") %>% 
-  melt(id.vars = "gene", value.name = "chip") -> data.tf.chip 
+  melt(id.vars = "gene", value.name = "chip", 
+       variable.name = "Sample_id") -> data.tf.chip 
 
-SCLC_RNA_fixed[sclc.subtypes,] %>% 
+rna_data[sclc.subtypes,] %>% 
   data.frame(check.names = F) %>% 
   rownames_to_column("gene") %>% 
-  melt(id.vars = "gene", value.name = "rna") -> data.tf.rna 
-  
-all(data.tf.chip$variable == data.tf.rna$variable & data.tf.chip$gene == data.tf.rna$gene)  
+  melt(id.vars = "gene", value.name = "rna", 
+       variable.name = "Sample_id") -> data.tf.rna 
 
 data.tf.chip %>% 
-  left_join(data.tf.rna, join_by(gene, variable)) %>% 
-  left_join(SCLC_ChIP_RNA_samples, join_by(variable == SampleShort_ID)) %>% 
-  filter(variable %in% not_matched.sclc_l.high.samples) %>%
-  # filter(gene == "ASCL1") %>% 
-  # arrange(-rna)
+  left_join(data.tf.rna, join_by(gene, Sample_id)) %>% 
+  left_join(metadata.matching, join_by(Sample_id)) %>% 
+  filter(SCLC.state != "other", SCLC > 0.5, Matched != "Remote") %>%
+  mutate(gene = factor(gene, levels = c("ASCL1", "NEUROD1", "POU2F3", 
+                                        "ATOH1", "YAP1"))) %>% 
   ggplot(aes(rna, chip, color = cohort)) +
-  geom_point(shape = 16) +
+  geom_point() +
   labs(x = "tumor RNA", y = "plasma cfChIP", color = "") +
   facet_wrap(~gene, scales = "free")  +
   stat_cor(color = "black", size = base_size/.pt, label.y.npc = 1) + 
@@ -126,13 +104,15 @@ data.tf.chip %>%
         strip.text = element_text(face = "bold")) +
   scale_color_aaas() -> p
 ggplotly(p)
-ggsave(paste0(figDirPaper, "figure4/rna_chip_TF_scatter_high", ".pdf"), p, 
+ggsave(paste0(figDirPaper, "figure4/rna_chip_TF_scatter_high.pdf"), p, 
        width = 160, height = 90, units = "mm")
 
 data.tf.chip %>% 
-  left_join(data.tf.rna, join_by(gene, variable)) %>% 
-  left_join(SCLC_ChIP_RNA_samples, join_by(variable == SampleShort_ID)) %>% 
-  filter(variable %in% not_matched.sclc_l.all.samples) %>%
+  left_join(data.tf.rna, join_by(gene, Sample_id)) %>% 
+  left_join(metadata.matching, join_by(Sample_id)) %>% 
+  filter(SCLC.state != "other", SCLC > 0.05) %>%
+  mutate(gene = factor(gene, levels = c("ASCL1", "NEUROD1", "POU2F3", 
+                                        "ATOH1", "YAP1"))) %>% 
   ggplot(aes(rna * SCLC, chip, color = cohort)) +
   geom_point(shape = 16) +
   labs(x = "normalized tumor RNA", y = "plasma cfChIP", color = "") +
@@ -150,7 +130,9 @@ ggsave(paste0(figDirPaper, "figure4/rna_chip_TF_scatter_all", ".pdf"), p,
        width = 160, height = 90, units = "mm")
 ggplotly(p)
 # pou2f3, atoh1 ChIP-RNA cor genebody vs. promoter ------------------------
-s = not_matched.sclc_l.high.samples
+metadata.matching %>% 
+  filter(SCLC.state != "other", SCLC > 0.5, Matched != "Remote") %>% 
+  pull(Sample_id) -> s
 lab.gene = c(pou2f3 = "POU2F3", atoh1 = "ATOH1")
 lab.var = c(promoter = "promoter", genebody = "genebody")
 
@@ -158,7 +140,7 @@ data.frame(promoter = c(chip_data_all["POU2F3",s],
                         atoh1.promoter = chip_data_all["ATOH1",s]), 
            genebody = c(colSums(win_data_all[pou2f3.wins,s]), 
                         win_data_all[atoh1.wins,s]),
-           rna = c(t(SCLC_RNA_fixed["POU2F3",s]), t(SCLC_RNA_fixed["ATOH1",s])), 
+           rna = c(t(rna_data["POU2F3",s]), t(rna_data["ATOH1",s])), 
            samp = s, 
            gene = c(rep("pou2f3", length(s)), rep("atoh1", length(s)))) %>%
   # mutate(rna = (2^rna) -1) %>%
@@ -168,7 +150,7 @@ data.frame(promoter = c(chip_data_all["POU2F3",s],
            label.x.npc = .5) +
   geom_point(shape = 16) +
   labs(x = "tumor RNA (CPM)", y = "plasma cfChIP (reads)") +
-# p = p + facet_wrap(~gene, scales = "free") + theme(aspect.ratio = 1)
+  # p = p + facet_wrap(~gene, scales = "free") + theme(aspect.ratio = 1)
   scale_x_continuous(trans = "log1p", breaks = c(0,1,3,10,30,100)) + 
   scale_y_continuous(trans = "log1p", breaks = c(0,1,3,10,30,100)) +
   facet_grid(gene ~ variable, scale = "free_y", 

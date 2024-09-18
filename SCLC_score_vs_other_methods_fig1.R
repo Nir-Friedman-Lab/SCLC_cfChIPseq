@@ -88,22 +88,26 @@ ggsave(paste0(figDirPaper, "figureS1/tumor_load_vs_response.pdf"), p, width = 50
 
 
 # SCLC score vs. timepoint ------------------------------------------------
-selected.timepoints = c("Pre-treatment", "Post-treatment", "Disease-progression")
+selected.timepoints = c("Pre-treatment", "Post-treatment", 
+                        "Ongoing-response", "Disease-progression")
 metadata %>%
   filter(Sample_id %in% s.samples) %>%
   filter(Timepoint %in% selected.timepoints) %>%
   select(c(SCLC.n, Timepoint, PatientID)) %>%
   mutate(Timepoint = factor(Timepoint, levels = selected.timepoints, 
-                            labels = c("Pre", "Post", "Progression")), 
-         SCLC.n = jitter(SCLC.n)) %>%
+                            labels = c("Pre", "Post", "Ongoing", "Progression")), 
+         SCLC.n = jitter(SCLC.n, 100)) %>%
+  mutate(SCLC.n = if_else(SCLC.n > 1, 1, SCLC.n), 
+         SCLC.n = if_else(SCLC.n < 0, 0, SCLC.n)) %>% 
   group_by(PatientID, Timepoint) %>%
   slice_max(n = 1, order_by = SCLC.n) %>%
   group_by(PatientID) %>% 
   filter(n() > 1) %>% 
-  ggplot(aes(Timepoint, SCLC.n, group = PatientID)) + 
+  ggplot(aes(Timepoint, SCLC.n, group = PatientID, text = PatientID)) + 
   geom_line(color = "gray", linewidth = .2) +
   geom_point(shape = 16, alpha = .7, size = .8) +
   scale_y_continuous(breaks = sclc.breaks, labels = sclc.lab) + 
   labs(x = "treatment stage", y = "SCLC score") -> p
 ggsave(paste0(figDirPaper, "figureS1/tumor_load_vs_progression_v1.pdf"), p, 
        width = 50, height = 50, units = "mm")
+ggplotly(p)

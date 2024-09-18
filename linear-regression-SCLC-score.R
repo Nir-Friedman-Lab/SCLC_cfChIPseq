@@ -29,10 +29,8 @@ data.frame(healthy = rowSums(reg.mat[,h.samples]),
          healthy.n = healthy/(SCLC + healthy)) -> estimated.tumor 
 write.csv(estimated.tumor, paste0(baseDir, "tumor_estimation_diff_genes.csv"))
 
-# currently, SCLC_score (which is called SCLC.n) appear in the metadata table
-# metadata %>%
-#   mutate(SCLC_score = estimated.tumor[Sample_id,"SCLC.n"]) -> metadata
-# qplot(metadata$SCLC.n, metadata$SCLC_score)
+metadata %>%
+  mutate(SCLC.n = estimated.tumor[Sample_id,"SCLC.n"]) -> metadata
 # see comment at end of the SCLC-main script
 
 # linear regression (tissue atlas) - CURRENTLY NOT USED ------------------------

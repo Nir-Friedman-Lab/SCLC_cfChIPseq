@@ -93,11 +93,36 @@ ggsave(paste0(figDirPaper, "figureS2/tumor_vs_tissue_signature.pdf"), p,
 # ggsave(paste0(figDirPaper, "figureS2/tumor_vs_tissue_signature_v2.pdf"), p, width = 80, height = 55, units = "mm")
 
 # effect of brain metastisis on signature (not is use) -------------------------
-data.brain = data.tiss.abs
-data.brain$brain = factor(metadata[data.brain$samp, "brain metastasis (No:0, Yes:1)"])
-data.brain = data.brain[!is.na(data.brain$brain) & data.brain$group == "SCLC",]
-p = boxplotWpoints(data.brain[data.brain$tissue %in% high.tissues,], "tissue", "value", 
-                    "brain", guides = T)
-p = p  + labs(x = "", y = "reads/kb", fill = "brain metas.") + coord_flip() + ylim(c(0,30))
-p = p + scale_fill_aaas() + scale_color_aaas() + guides(color = "none")
-ggsave(paste0(figDirPaper, "figureS2/brain_metastasis_sig.png"), p)
+data.tiss.abs %>% 
+  left_join(metadata %>% 
+              rename(Brain_met = names(.)[grepl("BrainMet", names(.))]) %>% 
+              select(Brain_met, Sample_id), 
+            join_by("sample" == "Sample_id")) %>% 
+  filter(tissue == "Brain") %>% 
+  mutate(Brain_met = factor(Brain_met, labels = c("yes", "no"))) %>% 
+  filter(!is.na(Brain_met)) %>% 
+  ggplot(aes(Brain_met, value)) +
+  geom_boxplot(outliers = F, lwd = base_line_size) +
+  geom_point(size = .5, position = position_jitter(width = .2)) + 
+  stat_compare_means(label = "p.signif", comparisons = list(c("yes", "no")), 
+                     size = base_size/.pt, lwd = base_line_size) + 
+  labs(x = "Brain Metastasis", y = "Brain signature (reads/kb)") -> p
+ggsave(paste0(figDirPaper, "figureS2/brain_metastasis_sig.png"), p, width = 50, 
+       height = 70, unit = "mm")
+
+data.tiss.abs %>% 
+  left_join(metadata %>% 
+              rename(liver_met = names(.)[grepl("LiverMet", names(.))]) %>% 
+              select(liver_met, Sample_id), 
+            join_by("sample" == "Sample_id")) %>% 
+  filter(tissue == "Liver") %>% 
+  mutate(liver_met = factor(liver_met, labels = c("yes", "no"))) %>% 
+  filter(!is.na(liver_met)) %>% 
+  ggplot(aes(liver_met, value)) +
+  geom_boxplot(outliers = F, lwd = base_line_size) +
+  geom_point(size = .5, position = position_jitter(width = .2)) + 
+  stat_compare_means(label = "p.signif", comparisons = list(c("yes", "no")), 
+                     size = base_size/.pt, lwd = base_line_size) + 
+  labs(x = "Liver Metastasis", y = "Liver signature (reads/kb)") -> p
+ggsave(paste0(figDirPaper, "figureS2/liver_metastasis_sig.png"), p, width = 50, 
+       height = 70, unit = "mm")
