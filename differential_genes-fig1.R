@@ -7,9 +7,9 @@ for (s in diff.genes.high.samples) {
 }
 diff.genes.common = table(diff.genes.common)
 diff.genes.common = names(which(diff.genes.common > 5))
-write.table(diff.genes.common, paste0(tableDir, "common.diff.genes.txt"), 
-            quote = F, row.names = F, col.names = F)
 
+enricher(diff.genes.common, paste0(figDirPaper, "figure1/"), "enrichR.diff.genes.csv", 
+         threshold = 1e-5)
 # histogram of number of differential genes -------------------------------
 lab = paste0("high SCLC\n(n=", length(diff.genes.high.samples),")"); 
 

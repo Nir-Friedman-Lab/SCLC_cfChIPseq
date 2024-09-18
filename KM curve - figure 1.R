@@ -4,9 +4,9 @@ library(survminer)
 # library(ggfortify)
 
 metadata %>% 
-  filter(Sample_id %in% pre.samples) %>% 
+  filter(Sample_id %in% pre.samples) %>%
   group_by(PatientID) %>% 
-  slice_min(order_by = sampling_date) %>% 
+  slice_min(order_by = sampling_date) %>%  
   ungroup() %>%
   left_join(metadata.patients %>% select(PatientID, `Mortality Status`, 
                                          `Date of Death`), 
@@ -24,7 +24,7 @@ data.surv %>%
   # mutate(mortal = if_else(!is.na(`Date of Death`), 1, mortal)) %>% # TODO patch till this is fixed in metadata
   mutate(above_median = SCLC.n > surv.cutoff, 
          survival = as.integer(survival)) -> data.surv
-  
+
 data.surv %>% 
   count(above_median)
   # filter(`cfDNA Patient identical/duplicate` == "Identical" & # pre-treatment samples
@@ -66,8 +66,6 @@ levels(km.data$group) = c("< median", "> median")
 # ggsave(paste0(figDirPaper, "figure1/km_curve.pdf"), p, width = 55, height = 55, units = "mm")
 # from https://rpkgs.datanovia.com/survminer/
 
-pdf(paste0(figDirPaper, "figure1/km_curve_v1.pdf"), width = 2.1, height = 2.1, 
-    pointsize = base_size)
 p = ggsurvplot(fit = kmfit, data = data.surv, pval = T, risk.table = TRUE, 
                ggtheme = base_theme, tables.theme = base_theme, 
                legend.labs = c("< median", "> median"), size = .5,
@@ -77,6 +75,8 @@ p = ggsurvplot(fit = kmfit, data = data.surv, pval = T, risk.table = TRUE,
                # surv.median.line = "hv",     
                risk.table.y.text = FALSE, tables.height = .3,
                fontsize = base_size/.pt, pval.size = base_size/.pt)
-p
-print(p, newpage = F)
-dev.off()
+p1 = p$plot
+p2 = p$table
+plotp = cowplot::plot_grid(p1,p2,align = "v",ncol =1,rel_heights = c(3,1))
+ggsave(paste0(figDirPaper, "figure1/km_curve_v1.pdf"), plotp, width = 60, 
+       height = 60, units = "mm")
