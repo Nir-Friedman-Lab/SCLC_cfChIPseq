@@ -1,8 +1,7 @@
 # PCA healthy SCLC - all genes  ------------------------------------------------------------
 pca.samples = c(h.samples, s.samples)
 res.pca = prcomp(t(chip_data_all[,pca.samples]))
-fviz_eig(res.pca, geom = "bar", barfill = "black", barcolor = "white", 
-         ggtheme = base_theme) + 
+fviz_eig(res.pca, geom = "bar", barfill = "black", barcolor = "white") + 
   theme(plot.title = element_blank()) + 
   labs(x = "Principal components", y = "% explained variance") -> p
 ggsave(paste0(figDirPaper, "figureS1/pca_scree_plot.pdf"), p, width = 50, height = 50, units = "mm")
@@ -10,6 +9,11 @@ ggsave(paste0(figDirPaper, "figureS1/pca_scree_plot.pdf"), p, width = 50, height
 data.frame(pc1 = res.pca$x[,1], 
            pc2 = res.pca$x[,2], 
            estimated.tumor[pca.samples,]) -> data.pca
+data.pca %>% 
+  select(pc1, pc2, SCLC.n) %>% 
+  rownames_to_column("Sample_id") %>% 
+  dplyr::rename(SCLC_score = SCLC.n) -> fig1dS1c
+
 data.pca %>% 
   ggplot(aes(pc1, pc2, color = group, text = rownames(data.pca))) +
   geom_point(aes(color = group, alpha = SCLC.n), shape = 16, size = 1) +
@@ -29,3 +33,4 @@ data.pca %>%
         panel.ontop = T) -> p
 ggsave(paste0(figDirPaper, "figureS1/pca_tumor_frac.pdf"), p, width = 53, 
        height = 53, units = "mm")
+

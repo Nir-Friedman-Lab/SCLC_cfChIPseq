@@ -60,6 +60,9 @@ data.lung_celltypes = read.csv(paste0(figDirPaper, "reads_per_lung_cell_type.csv
 
 # heatmap of lung cell-types over all samples  ----------------------------
 data.lung_celltypes %>% 
+  dplyr::rename(Sample_id = sample) -> 
+  figS3d
+data.lung_celltypes %>% 
   filter(sample %in% sh.samples) %>% 
   column_to_rownames("sample") %>% 
   select(-c(group)) -> d
@@ -89,6 +92,7 @@ lung_celltypes_genes %>%
   count(cell_type) -> lung_celltypes_genes_n
 rownames(lung_celltypes_genes_n) = lung_celltypes_genes_n$cell_type
 
+lung_celltypes_genes_n -> figS3c2
 data.lung_celltypes %>%
   filter(sample %in% sh.samples) %>%
   melt(id.vars = c("sample", "group"), 
@@ -96,6 +100,8 @@ data.lung_celltypes %>%
   mutate(val.per.gene = val/lung_celltypes_genes_n[cell_type, "n"]) %>%
   mutate(cell_type = reorder(cell_type, val.per.gene, mean)) -> data.lc.m
 
+data.lc.m %>% 
+  dplyr::rename(Sample_id = sample) -> fig2fS3c1
 boxplotWOpoints(data.lc.m, "cell_type", "val.per.gene", "group", plot_stat = F) +
   # ylim(c(NA,6000)) +
   # scale_y_break(c(1000,3000)) +
@@ -150,6 +156,10 @@ data.lung_celltypes %>%
        value.name = "val") %>% 
   filter(sample %in% c(s.samples), SCLC.n > high.score.cutoff) %>%
   mutate(val = log2(val), cell_type = reorder(cell_type, val, median)) -> data.lct
+
+data.lct %>% 
+  dplyr::rename(Sample_id = sample, 
+                SCLC_score = SCLC.n) -> fig2g
 
 data.lct %>%
   boxplotWOpoints("cell_type", "val", "group", plot_stat = F) + 
@@ -212,25 +222,28 @@ ggsave(paste0(figDirPaper, "figure4/ne_vs_ciliated.pdf"), p, width = 3, height =
 
 # ciliated/neuroendocrine ratio -------------------------------------------
 # it seems that high pou2f3 samples have a high ciliated/neuroendocrine ratio
-
-s = rna.samples.matched.time[rna.samples.matched.time %in% s.samples]
-data.frame(s = s, 
+# 176-120 has high erythrocyte which causes to overestimate of the sclc score
+metadata.matching %>% 
+  filter(Sample_id %in% ssl.samples, Sample_id != "SCLC0176-120", 
+         Matched != "Remote", SCLC > .2) %>% 
+  pull(Sample_id) -> s
+# s = rna.samples.matched.time[rna.samples.matched.time %in% s.samples]
+data.frame(sample = s, 
            estimated.tumor[s,], 
-           c = data.lung_celltypes[s, "Ciliated"],
-           n = data.lung_celltypes[s, "Neuroendocrine"], 
-           t(rna_data["POU2F3",s]), 
-           t(rna_data["ASCL1",s]),
-           t(rna_data["NEUROD1",s]), 
-           t(rna_data["YAP1",s])) %>%
-  mutate(sclc = estimated.tumor[s,"SCLC.n"], 
-         all.rna = ASCL1 + NEUROD1 + YAP1 + POU2F3) %>%
-  filter(estimated.tumor[s, "SCLC.n",] > low.score.cutoff, 
-         s != "SCLC0176-120") %>% 
-  # 176-120 has high erythrocyte which causes to overestimate of the sclc score
-  ggplot(aes(POU2F3/all.rna, log2(c/n), color = sclc, label = s)) +
-  geom_point(shape = 16, size = 1, alpha = .8) +
+           POU2F3 = rna_data["POU2F3",s], 
+           ASCL1 = rna_data["ASCL1",s],
+           NEUROD1 = rna_data["NEUROD1",s], 
+           YAP1 = rna_data["YAP1",s]) %>% 
+  left_join(data.lung_celltypes %>% 
+              dplyr::select(c(sample, Ciliated, Neuroendocrine)), 
+            by = "sample") %>% 
+  mutate(all.rna = ASCL1 + NEUROD1 + YAP1 + POU2F3) -> data.ciliated
+
+data.ciliated %>% 
+  ggplot(aes(POU2F3/all.rna, log2(Ciliated/Neuroendocrine), alpha = SCLC.n)) +
+  geom_point(shape = 16, size = 3) +
   labs(x = "relative POU2F3 - RNA", y = "log2 (ciliated/neuroendocrine) - ChIP", 
-       color = "SCLC score") +
+       fill = "SCLC score") +
   geom_vline(xintercept = .2, linetype="dashed", color = "red", linewidth = .5) +
   # geom_text_repel(size = 2) +
   theme(legend.position = c(.7,.3), legend.key.size = unit(2, 'mm')) -> p

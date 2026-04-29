@@ -2,6 +2,7 @@ chip_data_all = readRDS(paste0(baseDir, "chip_data_all.rds"))
 win_data_all = readRDS(paste0(baseDir, "win_data_all.rds"))
 
 rawdataDirNew = "~/Documents/SCLC_data/RDS/H3K4me3/"
+list.files(rawdataDirNew)
 qc.new = read.csv("~/Documents/SCLC_data/Output/H3K4me3/qc_all.csv", row.names = 1)
 low.qc.samples = rownames(qc.new)[qc.new$TSS < cutoff.yeild | 
                                 qc.new$X.Signal.at.TSS < cutoff.signal]

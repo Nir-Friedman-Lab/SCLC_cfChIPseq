@@ -29,6 +29,10 @@ signatures %>%
        variable.name = "tissue") %>%
   mutate(abs.value = value * concentration) -> data.tiss.abs
 
+data.tiss.abs %>% 
+  select(sample, group, tissue, abs.value, SCLC.n) %>% 
+  dplyr::rename(Sample_id = sample, 
+                SCLC_score = SCLC.n) -> fig2eS3ab
 # boxplot all tissues absolute counts (normalized to estimated concentrati --------
 boxplotWOpoints(data.tiss.abs, "tissue", "abs.value", "group") + 
   labs(x = "", y = "reads/kb") + 

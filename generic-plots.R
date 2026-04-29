@@ -1,8 +1,8 @@
 library(dplyr)
 library(cowplot)
 library(enrichR,quietly = T)
-read.table(paste0(externalDataDir, "ncbiRefSeqSelect.txt"), 
-           header = T, sep = "\t", check.names = F) %>% 
+read.table("~/Documents/SCLC_cfChIPseq/data/ncbiRefSeqSelect.txt",
+           header = T, sep = "\t", check.names = F) %>%
   # remove genes in non classical chromosomes
   filter(!grepl("_", chrom)) -> genes
 
@@ -181,7 +181,9 @@ plotTranscript = function(gene_name ,coord_start, coord_end, gene_win,
   #                   mapping = aes(x = s, y = .9), size = 5/.pt, hjust = .5, inherit.aes = T) 
   p = p + facet_wrap(~ gene, scale = "free_x", nrow = 1)
   p = p + theme(axis.line = element_blank(), axis.ticks = element_blank(), 
-                axis.text.y = element_blank(), strip.background = element_blank(), 
+                axis.text.y = element_blank(), 
+                axis.text.x = element_blank(), # remove gene coordinates
+                strip.background = element_blank(), 
                 panel.spacing.x = unit(4, "mm"))
   p = p + lims(y = c(0.8,1.1)) 
   p 
@@ -194,7 +196,7 @@ plotTranscript = function(gene_name ,coord_start, coord_end, gene_win,
 plotBrowser = function(bw.data, genomic_ranges, scale_tracks = F, scale_by = 1) {
   # 'autoscale-like'.  set y limit to be the maximum of all samples. scale_by - index of gene to scale y axis by.
   maxY = sapply(1:nrow(bw.data), function(i) 
-    max(max(import(bw.data$bw_path[i], selection = GRanges(genomic_ranges$win[scale_by]), as="RleList"))))
+    max(max(rtracklayer::import(bw.data$bw_path[i], selection = GRanges(genomic_ranges$win[scale_by]), as="RleList"))))
   pl = list()
   p_gene = plotTranscript(genomic_ranges$name, genomic_ranges$start, genomic_ranges$end, 
                           genomic_ranges$win, color = "black", strand_color = "gray") 
@@ -404,6 +406,16 @@ hclust2treeviewML <- function (x, file = "cluster.cdt", method = "euclidean", li
   else return(1)
 }
 
+ggsaveG <- function(plot, filename, width = 60, height = 60, dpi = 500, format = ".png") {
+  ggsave(
+    filename = paste0(filename, format),
+    plot = plot,
+    width = width,
+    height = height,
+    dpi = dpi, 
+    unit = "mm"
+  )
+}
 
 enricher <- function(genes,
                      output.path="./",
@@ -420,4 +432,10 @@ enricher <- function(genes,
   cat("found", nrow(en), "significant terms \n")
   cat("writing results to: ", paste0(output.path, outputfilename), "\n")
   write.csv(en, paste0(output.path,outputfilename))
+}
+
+auc_label <- function(name, roc_obj) {
+  ci_vals <- ci(roc_obj)
+  paste0(name, " (AUC: ", round(roc_obj$auc, 2),
+         ", 95% CI: ", round(ci_vals[1], 2), "-", round(ci_vals[3], 2), ")")
 }

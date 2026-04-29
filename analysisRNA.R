@@ -1,8 +1,8 @@
 library(edgeR)
 library(Rsubread)
 library(biomaRt)
-library(edgeR)
 library(tibble)
+library(DESeq2)
 rna_data_old = readRDS(paste0(paperDir, "Figures/rna_data_matched_all.rds"))
 # bam.file = "~/Documents/SCLC_data_from_NIH_box/RNA-seq/BAM/SB19_1645_RNA.bam"
 # # gtf_file = paste0("~/gavriel.fialkoff@mail.huji.ac.il - Google Drive/",
@@ -33,6 +33,8 @@ rna_data_old = readRDS(paste0(paperDir, "Figures/rna_data_matched_all.rds"))
 # new_data = readRDS("~/Documents/SCLC_data_from_NIH_box/RNA-seq/SCLC_2024-04-04.rdata")
 new_data = readRDS("~/Documents/SCLC_data_from_NIH_box/RNA-seq/SCLC_2024-07-30.rdata")
 # new_data = readRDS("~/Documents/SCLC_data_from_NIH_box/RNA-seq/SCLC_2024-05-16.rdata")
+
+# match RNA to ChIP names -------------------------------------------------
 exclude.genes = c() #c("IGLL5", "MIR3654") # genes that are very different between old and new analysis
 rna_data_new = new_data$counts
 notna = !is.na(rownames(rna_data_new)) & !rownames(rna_data_new) %in% exclude.genes
@@ -41,6 +43,23 @@ new_data$annotation = new_data$annotation[notna,]
 colnames(rna_data_new) = sub(".bam", "", colnames(rna_data_new))
 colnames(rna_data_new) = sub(".Aligned.sortedByCoord.out", "", colnames(rna_data_new))
 colnames(rna_data_new) = sub("_S24_part", "", colnames(rna_data_new))
+
+# RNA.newnames.df is created in SCLC-timeline(Nir).R
+rna_data_converted = rna_data_new[, RNA.newnames.df$RNA.colname]
+colnames(rna_data_converted) = RNA.newnames.df$Sample_id
+
+# Create DESeq dataset without colData
+dds = DESeqDataSetFromMatrix(
+  countData = rna_data_converted,
+  colData = data.frame(row.names = colnames(rna_data_converted)),
+  design = ~ 1
+)
+# Run rlog transformation
+rlog_counts = rlog(dds, blind = TRUE)  # Set blind=TRUE to ignore experimental design
+
+# Extract transformed data
+rlog_mat = assay(rlog_counts)
+write.csv(rlog_mat, paste0(baseDir, "SCLC_RNA_rlog.csv"))
 
 
 metadata %>% 

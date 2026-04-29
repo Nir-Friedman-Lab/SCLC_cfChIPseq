@@ -1,29 +1,44 @@
 # SCLC score vs. ctDNA, CT volume and RECIST ------------------------------
 metadata %>% 
+  left_join(read_xlsx(paste0(paperDir, "data/SCLC_cfChIP_DELFI_TF.xlsx")) %>% 
+              filter(Timepointmatch == "Yes") %>%
+              select(cfChiPseq_ID, DELFI_TF, Timepointmatch) %>% 
+              rename(Sample_id = cfChiPseq_ID, 
+                     ctDNA_delfi = DELFI_TF)) %>% 
   # filter(Sample_id %in% s.samples) %>% 
-  select(SCLC.n, ctDNA, cfDNA, CT_volume_ALL, CTC, RECIST) -> 
+  select(Sample_id, SCLC.n, ctDNA, cfDNA, CT_volume_ALL, CTC, RECIST, 
+         ctDNA_delfi, Timepointmatch) -> 
   data.score
 
-# data.score %>% 
-#   melt(id.vars = "SCLC.n", variable.name = "method", 
-#        measure.vars = c("ctDNA", "CT_volume_ALL", "RECIST")) %>%
-#   filter(!is.na(value)) %>% 
-#   ggplot(aes(SCLC.n, value)) +
-#   geom_point() +
-#   labs(y = "") + 
-#   stat_cor(size = base_size/.pt) + 
-#   facet_wrap(~method, nrow = 3, scales = "free", 
-#              strip.position = "left",
-#              labeller = as_labeller(c(ctDNA = "ctDNA fraction (ichorCNA)", 
-#                                       CT_volume_ALL = "CT volume (cm^{3})", 
-#                                       RECIST = "RECIST (cm)"),  label_parsed)) + 
-#   theme(strip.background = element_blank(),
-#         strip.placement = "outside")
-#   
+data.score %>% 
+  scatter.plot("ctDNA_delfi", "ctDNA", 
+               xlab = "ctDNA fraction (delfi)",
+               ylab = "ctDNA fraction (ichorCNA)", 
+               title = paste0("n=", sum(!is.na(data.score$ctDNA) &
+                                                 !is.na(data.score$ctDNA_delfi)))) +
+  # geom_text_repel(aes(label = Sample_id), size = 4/.pt) +
+  geom_abline(lwd = .2) + 
+  theme(aspect.ratio = 1) -> p
+ggsave(paste0(figDirPaper, "figure1/delfi_vs_ctDNA.pdf"),  p, 
+       width = 40, height = 40, units = "mm")
+ggsave(paste0(figDirPaper, "figure1/delfi_vs_ctDNA.png"),  p, 
+       width = 40, height = 40, units = "mm", dpi = 500)
+
+data.score %>% 
+  scatter.plot("ctDNA_delfi", "SCLC.n",
+               ylab = "SCLC score",
+               xlab = "ctDNA fraction (delfi)", 
+               title = paste0("n=", sum(!is.na(data.score$SCLC.n) &
+                                                 !is.na(data.score$ctDNA_delfi)))) + 
+  scale_y_continuous(breaks = sclc.breaks, labels = sclc.lab) -> p
+ggsave(paste0(figDirPaper, "figure1/delfi_vs_est_tumor.pdf"),  p, 
+       width = 40, height = 40, units = "mm")
+ggsave(paste0(figDirPaper, "figure1/delfi_vs_est_tumor.png"),  p, 
+       width = 40, height = 40, units = "mm", dpi = 500)
   
 data.score %>% 
-  scatter.plot("SCLC.n", "ctDNA", xlab = "", 
-             ylab = "ctDNA fraction (ichorCNA)", 
+  scatter.plot("SCLC.n", "ctDNA_delfi", xlab = "", 
+             ylab = "ctDNA fraction (DELFI)", 
              title = paste0("n=", sum(!is.na(data.score$ctDNA)))) + 
   theme(axis.text.x = element_blank(), 
         plot.margin = margin(b = -2, unit = "cm")) -> p1
@@ -70,13 +85,19 @@ data.score %>%
 ggsave(paste0(figDirPaper, "figureS1/ctDNA_vs_cfDNA.pdf"), 
        p, width = 45, height = 45, units = "mm")
 
-
+data.score %>% 
+  rename(SCLC_score = SCLC.n) -> fig1eS1de
 # SCLC score vs. response -------------------------------------------------
 metadata %>%
   filter(Sample_id %in% s.samples & Responder_NonResponder != "NA") %>%
   mutate(response = factor(Responder_NonResponder, 
                            levels = c("NonResponder", "Responder"), 
                            labels = c("non-responder", "responder"))) -> data.resp
+
+data.resp %>% 
+  select(Sample_id, PatientID, Responder_NonResponder, SCLC.n) %>% 
+  rename(SCLC_score = SCLC.n) -> figS1g
+
 data.resp %>% 
   boxplotWpoints("response", "SCLC.n", fill = "response", xlab = "", 
                    ylab = "SCLC score", plot_stat = F) + 
@@ -95,8 +116,10 @@ metadata %>%
   filter(Timepoint %in% selected.timepoints) %>%
   select(c(SCLC.n, Timepoint, PatientID)) %>%
   mutate(Timepoint = factor(Timepoint, levels = selected.timepoints, 
-                            labels = c("Pre", "Post", "Ongoing", "Progression")), 
-         SCLC.n = jitter(SCLC.n, 100)) %>%
+                            labels = c("Pre", "Post", "Ongoing", "Progression"))) -> figS1f
+
+figS1f %>% 
+  mutate(SCLC.n = jitter(SCLC.n, 100)) %>%
   mutate(SCLC.n = if_else(SCLC.n > 1, 1, SCLC.n), 
          SCLC.n = if_else(SCLC.n < 0, 0, SCLC.n)) %>% 
   group_by(PatientID, Timepoint) %>%

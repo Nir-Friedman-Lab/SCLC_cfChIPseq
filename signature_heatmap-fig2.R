@@ -8,6 +8,8 @@ log2(1+chip_data_all[diff.genes.common, s]) %>%
   mutate(across(everything(), ~ ifelse(. < -3, -3, .))) ->
   data.signature
 
+data.signature %>% 
+  rownames_to_column("gene") -> fig2a
 test.groups = c("SCLC", "NEC", "Healthy", "NSCLC", "CRC")
 
 colnames(data.signature)[rankSubgroups(estimated.tumor[colnames(data.signature),],
@@ -132,6 +134,9 @@ data.frame(group = factor(sample.annotation[s,"group"],
                                        levels = test.groups), 
          counts = colSums(chip_data_all[diff.genes.common, s]), 
          tumor = estimated.tumor[s, "SCLC.n"])  -> data.sig.sum
+
+data.sig.sum %>% 
+  rownames_to_column("Sample_id") -> fig2b
 data.sig.sum %>% 
   boxplotWpoints(x = "group", y = "counts", fill = "group", 
                  ylab = "reads/signature", comparisons = comparisons) -> p 

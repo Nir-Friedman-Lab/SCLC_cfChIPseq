@@ -4,9 +4,16 @@ canonical.genes = c("GAPDH", "DLL3", "INSM1", "CHGA", "CRMP1")
 s = c(s.samples, h.samples)
 data.frame(sample = s,
            group = sample.annotation[s,"group"], 
-           t(chip_data_all[canonical.genes, s])) %>% 
+           t(chip_data_all[canonical.genes, s])) -> data_cannonical
+
+data_cannonical %>% 
   melt(id.vars = c("sample", "group") , variable.name = "gene") %>% 
   boxplotWOpoints(x = "gene", y = "value", fill = "group", 
                   ylab = "cfChIP reads") -> p
 ggsave(paste0(figDirPaper, "figure2/boxplot_canonical_genes.pdf"), p, 
        height = 50, width = 50, units = "mm")
+
+
+data_cannonical %>% 
+  select(-sample) %>% 
+  rownames_to_column("Sample_id") -> fig2d

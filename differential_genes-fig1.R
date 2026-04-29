@@ -20,7 +20,9 @@ diff.genes %>%
     post.samples ~ "Post", 
     .default = NA
   )) %>% 
-  filter(!is.na(pretreatment)) %>% 
+  filter(!is.na(pretreatment)) -> figS1b 
+
+figS1b %>% 
   ggplot(aes(x = n.genes, fill = pretreatment)) +
   geom_histogram(binwidth = 100, linewidth = .2, color = "white") + 
   scale_fill_aaas() +
@@ -40,6 +42,9 @@ data.frame(sclc = rowMeans(chip_data_all[,diff.genes.high.samples]),
   mutate(diffgene = if_else(diffgene %in% diff.genes.common, "SCLC", diffgene)) %>% 
   rownames_to_column("gene") -> 
            data.high_sclc_healthy
+
+data.high_sclc_healthy %>% 
+  select(gene, sclc, healthy) -> fig1b
 
 mVal = ceiling(max(quantile(data.high_sclc_healthy$sclc,0.995), quantile(data.high_sclc_healthy$healthy, 0.995)))
 scatter.plot(data.high_sclc_healthy, x = "healthy", y = "sclc", 
@@ -72,6 +77,10 @@ estimated.tumor %>%
     .default = group), 
     group = factor(group, levels = c("SCLC\npre", "SCLC\npost", "Healthy", 
                                      "NSCLC", "CRC"))) -> data.score.groups
+
+data.score.groups %>% 
+  select(group, SCLC.n) %>% 
+  rename(SCLC_score = SCLC.n) -> fig1c
 
 comparisons = list(c("SCLC\npre", "SCLC\npost"), c("SCLC\npre", "Healthy"), 
                    c("SCLC\npre", "NSCLC"), c("SCLC\npre", "CRC"))

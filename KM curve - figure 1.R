@@ -26,6 +26,10 @@ data.surv %>%
          survival = as.integer(survival)) -> data.surv
 
 data.surv %>% 
+  select(PatientID, `survival duration (months)`, mortal, above_median) ->
+  fig1g
+
+data.surv %>% 
   count(above_median)
   # filter(`cfDNA Patient identical/duplicate` == "Identical" & # pre-treatment samples
   #          Timepoint == "Pre-treatment" & Sample_id %in% s.samples) %>% 

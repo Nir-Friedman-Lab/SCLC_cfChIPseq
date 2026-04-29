@@ -7,7 +7,10 @@ library(ggrepel)
 library(ggsci)
 library(rtracklayer)
 library(nnls)
+library(tidyr)
+library(ggpubr)
 library(plotly)
+library(tibble)
 # source("~/gavriel.fialkoff@mail.huji.ac.il - Google Drive/My Drive/PHD_progress/deconvolution-functions.R")
 source("generic-plots.R")
 source("~/BloodChIP/git/Core/NMF-util.R")
@@ -22,7 +25,6 @@ library(ggforce)
 library(ggbreak)
 library(ggpubr)
 library(eulerr)
-library(qusage)
 library(cowplot)
 library(grid)
 library(gridExtra)
@@ -34,12 +36,10 @@ library(RColorBrewer)
 library(pROC)
 library(circlize)
 library(ggrastr)
-library(GSVA)
 library(MASS)
 library(conflicted)
-library(reporter)
+library(dplyr)
 library(magrittr)
-suppressPackageStartupMessages(library(ggstream))
 suppressPackageStartupMessages(library(googlesheets4))
 conflict_prefer("select", "dplyr")
 conflict_prefer("filter", "dplyr")
@@ -50,8 +50,14 @@ conflicts_prefer(base::intersect)
 conflicts_prefer(matrixStats::rowMedians)
 conflicts_prefer(dplyr::count)
 conflicts_prefer(dplyr::rename)
+conflicts_prefer(dplyr::select)
 conflicts_prefer(stats::as.dist)
 conflicts_prefer(matrixStats::rowMaxs)
+library(qusage)
+library(GSVA)
+library(reporter)
+library(xlsx)
+suppressPackageStartupMessages(library(ggstream))
 # load setup files --------------------------------------------------------
 LoadMeta = FALSE
 LoadSig = TRUE
@@ -131,24 +137,13 @@ gene.atlas = readRDS(paste0(phdDir, "data/gene.atlas.rds"))
 gene.atlas = gene.atlas$gene.atlas[Genes.notexcluded,]
 win.atlas = readRDS("~/gavriel.fialkoff@mail.huji.ac.il - Google Drive/Shared drives/Friedman Lab Shared Drive/BloodChIP/Atlases/Win.Atlas.named.rdata")
 
-# win_data_all = sapply(a.samples, function(s) readRDS(paste0(rawdataDir, s, ".rdata"))$Counts.QQnorm)
-# rownames(chip_data_all) = rownames(gene.atlas)
-# chip_data_new = sapply(new.samples.passQC, function(s) 
-#   readRDS(paste0(1, s, ".rdata"))$GeneCounts.QQnorm)
-# rownames(chip_data_new) = rownames(chip_data_all)
-# win_data_new = sapply(new.samples.passQC, function(s) 
-#   readRDS(paste0(senseeraDatadir, s, ".rdata"))$Counts.QQnorm)
-# chip_data_all = cbind(chip_data_all, chip_data_new)
-# win_data_all = cbind(win_data_all, win_data_new)
-# saveRDS(win_data_all, paste0(baseDir, "win_data_all.rds"))
-# saveRDS(chip_data_all, paste0(baseDir, "chip_data_all.rds"))
-
 ############## final version after sample correction ##########################
 win_data_all = readRDS(paste0(baseDir, "win_data_all.rds"))
 chip_data_all = readRDS(paste0(baseDir, "chip_data_all.rds"))
-# SCLC0126-223 - gentic missmatch.  # change name of SCLC0035-653 to SCLC0037-653
-chip_data_all = chip_data_all[,grep("SCLC0126-223", colnames(chip_data_all), invert = T)]
-win_data_all = win_data_all[,grep("SCLC0126-223", colnames(win_data_all), invert = T)]
+# SCLC0126-223 - gentic missmatch.  "CRC0021-3847" - too few reads
+chip_data_all = chip_data_all[,grep("SCLC0126-223|CRC0021-3847", colnames(chip_data_all), invert = T)]
+win_data_all = win_data_all[,grep("SCLC0126-223|CRC0021-3847", colnames(win_data_all), invert = T)]
+# change name of SCLC0035-653 to SCLC0037-653
 colnames(chip_data_all) = sub("35-653", "37-653", colnames(chip_data_all))
 colnames(win_data_all) = sub("35-653", "37-653", colnames(win_data_all))
 a.samples = colnames(chip_data_all)
@@ -163,11 +158,10 @@ colnames(rna_roadmap)[match(rownames(roadmap.names), colnames(rna_roadmap))] == 
 colnames(rna_roadmap)[match(rownames(roadmap.names), colnames(rna_roadmap))] = roadmap.names$Universal_Human_Reference
 rna_roadmap$E000 = NULL
 
-# updated Aug 2024##
-# samp.composition.clus = read.csv(paste0(paperDir, "Figures/sample_composition_clustered.csv"), row.names = 1)
-# healthy.estimate = colSums(samp.composition.clus[rownames(samp.composition.clus) %in% c("megakaryocyte", "monocyte.macrophage", "Neutrophil", "eosinophil"),])
-rna_data = readRDS("~/gavriel.fialkoff@mail.huji.ac.il - Google Drive/Shared drives/Friedman Lab Shared Drive/BloodChIP/Analysis/Projects/NIH_SCLC/new_data/SCLC_RNA_fixed.rds")
+rna_data = readRDS(paste0(baseDir, "SCLC_RNA_fixed.rds"))
 matched.genes = intersect(rownames(rna_data), rownames(chip_data_all))
+
+# the metadata contains information only about the SCLC samples
 url = "https://docs.google.com/spreadsheets/d/1hkxqRSBGzbQC-UhvHHFOB5qxd_SW3SjwMuMJj0BEwD0?usp=drive_fs"
 sid = "1hkxqRSBGzbQC-UhvHHFOB5qxd_SW3SjwMuMJj0BEwD0"
 gs4_deauth()
@@ -188,6 +182,7 @@ googlesheets4::read_sheet(sid, sheet = "Biopsies") %>%
 googlesheets4::read_sheet(sid, sheet = "RNA-ChIP pairing") %>%
   as_tibble() -> metadata.matching
 
+
 metadata %>% 
   left_join(metadata.patients %>% select(SCLC.state, PatientID, Histology),
            by = "PatientID") %>%
@@ -196,15 +191,6 @@ metadata %>%
          RECIST = as.numeric(RECIST), 
          cfDNA = as.numeric(cfDNA), 
          CTC = as.numeric(CTC))-> metadata
-
-
-# qc = read.csv(paste0(baseDir, "Output/H3K4me3/May_2022_all_qc.csv"), row.names = 1)
-# qc = read.csv("~/gavriel.fialkoff@mail.huji.ac.il - Google Drive/Shared drives/Friedman Lab Shared Drive/BloodChIP/Analysis/Projects/NIH_SCLC/new_data/Output/H3K4me3/qc_all.csv", 
-#               row.names = 1)
-#low.qc.samples = rownames(qc)[qc$TSS < cutoff.yeild | qc$X.Signal.at.TSS < cutoff.signal]
-# low.qc.samples.short = sub("_.*", "", low.qc.samples)
-# passed.qc.samples = a.samples[!a.samples %in% low.qc.samples.short]
-# till here 
 
 estimated.tumor = read.csv(paste0(baseDir, "tumor_estimation_diff_genes.csv"), row.names = 1)
 estimated.tumor$group = factor(estimated.tumor$group)
@@ -242,17 +228,19 @@ c(a.samples[grep("^LC", a.samples)],  metadata %>%
     filter(Histology == "NSCLC") %>% 
     pull(Sample_id)) -> l.samples
 sh.samples = c(s.samples, h.samples)
+ssl.samples = c(s.samples, sl.samples)
 
 data.frame(row.names = colnames(chip_data_all), 
-           sample = colnames(chip_data_all)) %>% 
-  mutate(group = case_match(
-    sample,
-    c.samples ~ "CRC",
-    h.samples ~ "Healthy",
-    l.samples ~ "NSCLC",
-    o.samples ~ "other", 
-    nec.samples ~ "NEC",
-    s.samples ~ "SCLC",
+           Sample_id = colnames(chip_data_all)) %>% 
+  mutate(patient = sub("-.*", "", Sample_id), 
+         group = case_match(
+           Sample_id,
+           c.samples ~ "CRC",
+           h.samples ~ "Healthy",
+           l.samples ~ "NSCLC",
+           o.samples ~ "other", 
+           nec.samples ~ "NEC",
+           s.samples ~ "SCLC",
     .default = NA
   )) -> sample.annotation
 

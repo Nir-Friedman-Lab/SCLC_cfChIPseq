@@ -3,7 +3,7 @@
 # compute NE score --------------------------------------------------------
 # function obtained from the ssGSEA package 
 # https://github.com/alwaysblack777/Therapeutic-targeting-of-ATR-yields-durable-regressions-in-high-replication-stress-tumors/tree/main/ssGSEA
-NE = read_xlsx(paste0(baseDir, "data_from_NIH/NCI_SCLC_transcriptome_subtype_20200910.xlsx"), 
+NE = read_xlsx(paste0("~/gavriel.fialkoff@mail.huji.ac.il - Google Drive/Shared drives/Friedman Lab Shared Drive/BloodChIP/Analysis/Projects/NIH_SCLC/data_from_NIH/NCI_SCLC_transcriptome_subtype_20200910.xlsx"), 
                sheet = "NE signature genes", skip = 2)
 
 
@@ -15,58 +15,36 @@ gsets$SCLC_Neuroendocrine =
 gsets$SCLC_Non_Neuroendocrine = 
   gsets$SCLC_Non_Neuroendocrine[healthy.ref[gsets$SCLC_Non_Neuroendocrine] < 30]
   
-data.frame(t(GSVA::gsva(expr = SCLC_ChIP_fixed, gset.idx.list = gsets,
+data.frame(t(GSVA::gsva(expr = chip.matched, gset.idx.list = gsets,
                         method = 'ssgsea', kcdf = "Gaussian", verbose=FALSE))) %>%
   mutate(NE_score = (SCLC_Neuroendocrine - SCLC_Non_Neuroendocrine)) / 2 ->
   data.ne.score.chip
-data.frame(t(GSVA::gsva(expr = SCLC_RNA_fixed, gset.idx.list = gsets, # changed to rna.cpm from rna_data
+data.frame(t(GSVA::gsva(expr = rna_data, gset.idx.list = gsets, # changed to rna.cpm from rna_data
                         method = 'ssgsea', kcdf = "Gaussian", verbose=FALSE))) %>%
   mutate(NE_score = (SCLC_Neuroendocrine - SCLC_Non_Neuroendocrine)) / 2 ->
   data.ne.score.rna
 
 metadata %>%
-  mutate(NE_SCORE = as.numeric(NE_SCORE), 
-         NE_SCORE_chip = data.ne.score.chip[Sample_id,"NE_score"], 
-         NE_SCORE_RNA = data.ne.score.rna[Sample_id, "NE_score"]) -> metadata
-
-metadata %>% 
-  ggplot(aes(NE_SCORE, NE_SCORE_RNA, text = Sample_id)) + 
-  geom_point() + 
-  geom_abline() -> p
-ggplotly(p)
-# metadata$NE_SCORE_chip = NA
-# metadata[s.samples, "NE_SCORE_chip"] = data.ne.score.chip[s.samples, "NE_score"]
+  mutate(NE_SCORE_chip = data.ne.score.chip[Sample_id,"NE_score"], 
+         NE_SCORE_RNA = data.ne.score.rna[Sample_id, "NE_score"]) -> data.ne
 
 # NE score ChIP vs RNA - scatter  -----------------------------------------
-# samps = rna.samples.chip.passQC; outname = "all_samples"
-# samps = high.ctDNA.samples.wRNA; outname = "high_samples"
-# samps = high.ctDNA.samples.wRNA.matched.time; outname = "high_samples_matched_time"
-samps = matched.sclc_l.high.samples; outname = "fixed"
-# samps = not_matched.sclc_l.all.samples
+samps = matched.high.samples; outname = "fixed"
 
-metadata %>% 
+data.ne %>% 
   filter(Sample_id %in% samps) %>% 
   scatter.plot("NE_SCORE_RNA", "NE_SCORE_chip", xlab = "tumor RNA", 
                ylab = "plasma cfChIP", cor = T) -> p
 p
-# validation.rna %>%
-#   inner_join(patient.sample.table, 
-#              join_by("patient_id" == "Collaborators.Subject.ID")) %>%
-metadata %>%
-  # filter(SCLC_score > low.score.cutoff) %>% 
+
+data.ne %>%
   filter(Sample_id %in% samps) %>%
-  # filter(!grepl("33-489", Sample_id)) %>%
-  # filter(`Tumor_ctDNA_timing_match (determined based on treatment timing standpoint)` == "Yes") %>%
   ggplot(aes(NE_SCORE_RNA, NE_SCORE_chip)) +
-  # geom_point(aes(alpha = SCLC_score, color = cohort), shape = 16, size = 1) +
   geom_point(shape = 16, size = 1) +
   labs(x = "tumor RNA", y = "plasma cfChIP", title = "NE score") + 
-  # geom_text_repel(size = 2) + 
   scale_color_aaas() + 
   stat_cor(label.y.npc = 1, size = base_size/.pt) +
   geom_smooth(formula = y~x-1, method = "rlm", se = F, linewidth = .5) + 
-  # geom_vline(xintercept = 0, linetype = "dashed", linewidth = .2) + 
-  # geom_hline(yintercept = 0, linetype = "dashed", linewidth = .2) + 
   theme(aspect.ratio = 1, legend.key.size = unit(2, "mm"), 
         legend.position = c(.9, .2)) -> p
 ggsave(paste0(figDirPaper, "figure4/ne.score_RNA_ChIP_", outname, "v1.pdf"), 
@@ -74,19 +52,7 @@ ggsave(paste0(figDirPaper, "figure4/ne.score_RNA_ChIP_", outname, "v1.pdf"),
 ggplotly(p)
 
  
-## old version NE score in RNA and ChIP - based on Zhang 2018 https://www.mendeley.com/catalogue/29d708a9-9dac-3797-a991-e3307a62f78d/?utm_source=desktop&utm_medium=1.19.8&utm_campaign=open_catalog&userDocumentId=%7B728683f7-9890-3c91-a97f-7e3610740f4c%7D
-# ne.score = read.csv(paste0(baseDir, "cfChIP-paper/Figures/NE_score_Zhang.csv"))
-# rna.ne.score = sapply(samps, function(i) (cor(rna_data[ne.score$gene,i], ne.score$mean_exp_NE) -
-#                                             cor(rna_data[ne.score$gene,i], ne.score$mean_exp_nonNE))/2)
-# chip.ne.score = sapply(samps, function(i) (cor(log2(1+chip_data_all[ne.score$gene,i]), ne.score$mean_exp_NE) -
-#                                              cor(log2(1+chip_data_all[ne.score$gene,i]), ne.score$mean_exp_nonNE))/2)
-# data.ne = data.frame(samp = samps, rna = rna.ne.score, chip = chip.ne.score)
-# p = scatter.plot(data.ne, x = "rna", y = "chip", xlab = "tumor RNA", ylab = "plasma cfChIP", cor = T)
-# ggplot(data.ne, aes(rna, chip, label = substr(samp, 5, 13))) + geom_point() + geom_text_repel(size = 2)
-ggsave(paste0(figDirPaper, "figure4/ne.score_RNA_ChIP_", outname, ".pdf"), width = 55, height = 55, units = "mm")
-
-
-# NE signature heatmap ----------------------------------------------------
+# NE signature heatmap (not in use) ----------------------------------------------------
 ## NE signature in RNA and ChIP
 NE = read_xlsx(paste0(baseDir, "data_from_NIH/NCI_SCLC_transcriptome_subtype_20200910.xlsx"), 
                sheet = "NE signature genes", skip = 2)
